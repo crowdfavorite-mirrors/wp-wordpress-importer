@@ -894,7 +894,7 @@ class WP_Import extends WP_Importer {
 	 */
 	function fetch_remote_file( $url, $post ) {
 		// extract the file name and extension from the url
-		$file_name = basename( $url );
+		$file_name = strtolower(str_replace(' ', '', rawurldecode(basename( $url ))));
 		
 		// CF Modified to reverse order so that dynamic remote URLs could be downloaded.
 		$result = wp_remote_get(
