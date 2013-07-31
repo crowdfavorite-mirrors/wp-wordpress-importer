@@ -615,8 +615,8 @@ class WP_Import extends WP_Importer {
 				}
 
 				if ( is_wp_error( $post_id ) ) {
-					printf( __( 'Failed to import %s &#8220;%s&#8221;', 'wordpress-importer' ),
-						$post_type_object->labels->singular_name, esc_html($post['post_title']) );
+					printf( __( 'Failed to import %s &#8220;%s&#8221; - %s', 'wordpress-importer' ),
+						$post_type_object->labels->singular_name, esc_html($post['post_title']), $post_id->get_error_message() );
 					if ( defined('IMPORT_DEBUG') && IMPORT_DEBUG )
 						echo ': ' . $post_id->get_error_message();
 					echo '<br />';
@@ -914,7 +914,11 @@ class WP_Import extends WP_Importer {
 		// Determine the mime type, see if it's allowed, and generate the filename.
 		$mime_type = null;
 		if (empty($result['headers']['content-type'])) {
-			$file_info = wp_check_filetype(substr($file_name, 0, strpos($file_name, '?')));
+			$file_base = $file_name;
+			if (strpos($file_name, '?') !== false) {
+				$file_base = substr($file_name, 0, strpos($file_name, '?'));
+			}
+			$file_info = wp_check_filetype($file_base);
 			if (!empty($file_info['type'])) {
 				$mime_type = $file_info['type'];
 			}
