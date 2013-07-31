@@ -912,13 +912,23 @@ class WP_Import extends WP_Importer {
 		}
 		
 		// Determine the mime type, see if it's allowed, and generate the filename.
+		$mime_type = null;
 		if (empty($result['headers']['content-type'])) {
-			return new WP_Error( 'import_file_error', __('Remote server did not provide content type', 'wordpress-importer'));
+			$file_info = wp_check_filetype(substr($file_name, 0, strpos($file_name, '?')));
+			if (!empty($file_info['type'])) {
+				$mime_type = $file_info['type'];
+			}
+			else {
+				return new WP_Error( 'import_file_error', sprintf(__('Could not detect mime type of %s', 'wordpress-importer'), $url));
+			}
 		}
-		$mime_type = $result['headers']['content-type'];
+		else {
+			$mime_type = preg_replace('/;.*$/', '', $result['headers']['content-type']);
+		}
+		
 		$allowed_types = get_allowed_mime_types();
 		if ( !($key = array_search($mime_type, get_allowed_mime_types()))) {
-			return new WP_Error( 'import_file_error', sprintf( __('Mime type %s not supported for import', 'wordpress-importer'), $mime_type ));
+			return new WP_Error( 'import_file_error', sprintf( __('Mime type "%s" not supported for import of %s', 'wordpress-importer'), $mime_type, $url ));
 		}
 		
 		// Configure filename information
