@@ -895,30 +895,79 @@ class WP_Import extends WP_Importer {
 	function fetch_remote_file( $url, $post ) {
 		// extract the file name and extension from the url
 		$file_name = basename( $url );
+		
+		// CF Modified to reverse order so that dynamic remote URLs could be downloaded.
+		$result = wp_remote_get(
+			$url,
+			array(
+				'redirection' => 5
+			)
+		);
+		
+		if (empty($result['response']) || empty($result['response']['code'])) {
+			return new WP_Error( 'import_file_error', __('Remote server did not respond', 'wordpress-importer'));
+		}
+		else if ($result['response']['code'] !== 200) {
+			return new WP_Error( 'import_file_error', sprintf( __('Remote server returned error response %1$d %2$s for %3$s', 'wordpress-importer'), esc_html($result['response']['code']), esc_html($result['response']['message']), esc_html($url)));
+		}
+		
+		// Determine the mime type, see if it's allowed, and generate the filename.
+		if (empty($result['headers']['content-type'])) {
+			return new WP_Error( 'import_file_error', __('Remote server did not provide content type', 'wordpress-importer'));
+		}
+		$mime_type = $result['headers']['content-type'];
+		$allowed_types = get_allowed_mime_types();
+		if ( !($key = array_search($mime_type, get_allowed_mime_types()))) {
+			return new WP_Error( 'import_file_error', sprintf( __('Mime type %s not supported for import', 'wordpress-importer'), $mime_type ));
+		}
+		
+		// Configure filename information
+		$extra = '';
+		if (strpos($file_name, '?') !== false) {
+			$extra = md5(substr($file, strpos($file_name, '?')));
+			$file_name = substr($file, 0, strpos($file_name, '?'));
+		}
+		
+		if (empty($file_name)) {
+			$file_name = 'imported_file';
+		}
+		
+		// Set uniform file extension by mime type.
+		$extensions = explode('|', $key);
+		$file_base = $file_name;
+		$file_ext = '';
+		if (strpos($file_base, '.') !== false) {
+			$file_base = substr($file_name, 0, strrpos($file_name, '.'));
+			$file_ext = substr($file_name, strrpos($file_name, '.') + 1);
+			if (!in_array($file_ext, $extensions)) {
+				// Let's delete this and standardize it by mime type.
+				$file_ext = $extensions[0];
+			}
+		}
+		else {
+			$file_ext = $extensions[0];
+		}
+		
+		$file_name = $file_base . '.';
+		if (!empty($extra)) {
+			$file_name .= $extra . '.';
+		}
+		$file_name .= $file_ext;
 
 		// get placeholder file in the upload dir with a unique, sanitized filename
 		$upload = wp_upload_bits( $file_name, 0, '', $post['upload_date'] );
 		if ( $upload['error'] )
 			return new WP_Error( 'upload_dir_error', $upload['error'] );
-
-		// fetch the remote url and write it to the placeholder file
-		$headers = wp_get_http( $url, $upload['file'] );
-
-		// request failed
-		if ( ! $headers ) {
-			@unlink( $upload['file'] );
-			return new WP_Error( 'import_file_error', __('Remote server did not respond', 'wordpress-importer') );
-		}
-
-		// make sure the fetch was successful
-		if ( $headers['response'] != '200' ) {
-			@unlink( $upload['file'] );
-			return new WP_Error( 'import_file_error', sprintf( __('Remote server returned error response %1$d %2$s', 'wordpress-importer'), esc_html($headers['response']), get_status_header_desc($headers['response']) ) );
+			
+		$out_fp = fopen($upload['file'], 'w');
+		if ($out_fp) {
+			fwrite($out_fp, $result['body']);
+			fclose($out_fp);
 		}
 
 		$filesize = filesize( $upload['file'] );
 
-		if ( isset( $headers['content-length'] ) && $filesize != $headers['content-length'] ) {
+		if ( isset( $result['headers']['content-length'] ) && $filesize != $result['headers']['content-length'] ) {
 			@unlink( $upload['file'] );
 			return new WP_Error( 'import_file_error', __('Remote file is incorrect size', 'wordpress-importer') );
 		}
