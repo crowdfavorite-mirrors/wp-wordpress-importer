@@ -557,7 +557,7 @@ class WP_Import extends WP_Importer {
 			$post_exists = post_exists( $post['post_title'], '', $post['post_date'] );
 			if ( $post_exists && get_post_type( $post_exists ) == $post['post_type'] ) {
 				printf( __('%s &#8220;%s&#8221; already exists.', 'wordpress-importer'), $post_type_object->labels->singular_name, esc_html($post['post_title']) );
-				echo '<br />';
+				echo "<br />\n";
 				$comment_post_ID = $post_id = $post_exists;
 			} else {
 				$post_parent = (int) $post['post_parent'];
@@ -873,7 +873,7 @@ class WP_Import extends WP_Importer {
 
 		// remap resized image URLs, works by stripping the extension and remapping the URL stub.
 		if ( preg_match( '!^image/!', $info['type'] ) ) {
-			$parts = pathinfo( $url );
+			$parts = pathinfo( $upload['url'] );
 			$name = basename( $parts['basename'], ".{$parts['extension']}" ); // PATHINFO_FILENAME in PHP 5.2
 
 			$parts_new = pathinfo( $upload['url'] );
@@ -938,8 +938,8 @@ class WP_Import extends WP_Importer {
 		// Configure filename information
 		$extra = '';
 		if (strpos($file_name, '?') !== false) {
-			$extra = md5(substr($file, strpos($file_name, '?')));
-			$file_name = substr($file, 0, strpos($file_name, '?'));
+			$extra = md5(substr($file_name, strpos($file_name, '?')));
+			$file_name = substr($file_name, 0, strpos($file_name, '?'));
 		}
 		
 		if (empty($file_name)) {
@@ -967,6 +967,8 @@ class WP_Import extends WP_Importer {
 			$file_name .= $extra . '.';
 		}
 		$file_name .= $file_ext;
+		
+		$file_name = str_replace(' ', '_', rawurldecode($file_name));
 
 		// get placeholder file in the upload dir with a unique, sanitized filename
 		$upload = wp_upload_bits( $file_name, 0, '', $post['upload_date'] );
