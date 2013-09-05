@@ -894,7 +894,17 @@ class WP_Import extends WP_Importer {
 	 */
 	function fetch_remote_file( $url, $post ) {
 		// extract the file name and extension from the url
-		$file_name = strtolower(str_replace(' ', '', rawurldecode(basename( $url ))));
+		$file_name = '';
+		if(!empty($headers['content-disposition'])) {
+			$filename_matches = array();
+			preg_match_all('~filename="(.*?)"~', $response['headers']['content-disposition'], $filename_matches);
+			if(count($filename_matches[1]) > 0) {
+				$file_name = $matches[1][0];
+			}
+		}
+		if (empty($file_name)) {
+			$file_name = strtolower(str_replace(' ', '', rawurldecode(basename( $url ))));
+		}
 		
 		// CF Modified to reverse order so that dynamic remote URLs could be downloaded.
 		$result = wp_remote_get(
